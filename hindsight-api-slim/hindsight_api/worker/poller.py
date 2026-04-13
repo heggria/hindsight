@@ -223,7 +223,7 @@ class WorkerPoller:
                       AND task_payload IS NOT NULL
                       AND operation_type != 'consolidation'
                       AND (next_retry_at IS NULL OR next_retry_at <= NOW())
-                    ORDER BY created_at
+                    ORDER BY CASE WHEN bank_id LIKE 'paperclip::%' THEN 0 ELSE 1 END, created_at
                     LIMIT $1
                     FOR UPDATE SKIP LOCKED
                     """,
