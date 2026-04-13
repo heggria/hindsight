@@ -100,11 +100,17 @@ async def store_chunks_batch(conn, bank_id: str, document_id: str, chunks: list[
         content_hashes.append(compute_chunk_hash(chunk.chunk_text))
         chunk_id_map[chunk.chunk_index] = chunk_id
 
-    # Batch insert all chunks
+    # Upsert chunks so repeated retains of the same document stay idempotent.
     await conn.execute(
         f"""
         INSERT INTO {fq_table("chunks")} (chunk_id, document_id, bank_id, chunk_text, chunk_index, content_hash)
         SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::integer[], $6::text[])
+        ON CONFLICT (chunk_id) DO UPDATE
+        SET document_id = EXCLUDED.document_id,
+            bank_id = EXCLUDED.bank_id,
+            chunk_text = EXCLUDED.chunk_text,
+            chunk_index = EXCLUDED.chunk_index,
+            content_hash = EXCLUDED.content_hash
         """,
         chunk_ids,
         [document_id] * len(chunk_texts),
